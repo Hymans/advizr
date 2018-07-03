@@ -18,57 +18,61 @@ using System.Net.Http.Headers;
 using System.Diagnostics;
 using System.Text;
 using Newtonsoft.Json.Linq;
+using RestSharp;
+using RestSharp.Deserializers;
+using System.Net;
+using System.Threading;
 
 namespace AlexaAdvisors
 {
 
     public static class AlexaResponse
     {
+        //This function creates globals variables
+        public static class Globals
+        {
+            public static int user_ages =0;
+            public static string user_health = "";
+            public static string user_gender = "";
+            public static string user_postcode = "";
+            public static string user_postcode_proxy = "";
+            public static double output_user_longestvity =0;
+            public const string subsricption_key = "ab05b31f579c4d92aa06bd61d4186b64";
+            public static bool isCallAPIcomplete = false;
+        }
 
+
+        //This is main function for Alexa response
         [FunctionName("AlexaResponse")]
-        public static async Task<SkillResponse> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)][FromBody]SkillRequest req, TraceWriter log)
+        public static async Task<SkillResponse> Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)][FromBody]SkillRequest req, TraceWriter log)
         {
             //Find Request Type
             var requestType = req.GetRequestType();
 
-            var response = new SkillResponse();
-            response.Response = new ResponseBody();
-            response.Response.ShouldEndSession = false;
-
-
             //Check intent request
             if (requestType == typeof(IntentRequest))
             {
-                //Store intent, intent's name and user session
+                //Store intent request and intent's name
                 var intentRequest = req.Request as IntentRequest;
                 var intentName = intentRequest.Intent.Name;
-                var currentSessionAttributes = req.Session;
 
-                //Check intent name
+                //Check intent's name
                 switch (intentName)
                 {
                     case "AMAZON.CancelIntent":
-                        response = CreateResponse("Cancel Intent detected! Goodbye", "");
-                        response.Response.ShouldEndSession = true;
-                        return response;
+                        return ResponseBuilder.Tell("See you next time. Goodbye.");
 
                     case "AMAZON.HelpIntent":
-                        response = CreateResponse("Let's try how long I can live.", "");
-                        response.Response.ShouldEndSession = true;
-                        return response;
+                        return ResponseBuilder.Tell("You can try how long I can live ?");
 
                     case "AMAZON.StopIntent":
-                        response = CreateResponse("Stop Intent detected! Goodbye", "");
-                        response.Response.ShouldEndSession = true;
-                        return response;
+                        return ResponseBuilder.Tell("See you next time. Goodbye.");
 
                     case "SessionEndedRequest":
-                        response = CreateResponse("Session end request detected! Goodbye", "");
-                        response.Response.ShouldEndSession = true;
-                        return response;
-
+                        return ResponseBuilder.Tell("See you next time. Goodbye.");
 
                     case "LifeExpectancy":
+                        //Create updated intent
                         var updatedIntent = new Intent();
                         updatedIntent.Name = "LifeExpectancy";
                         updatedIntent.ConfirmationStatus = "NONE";
@@ -76,50 +80,45 @@ namespace AlexaAdvisors
 
                         if (intentRequest.DialogState == "STARTED")
                         {
-                            log.Warning("Current Dialogstate: " + intentRequest.DialogState);
-                            log.Info("UpdatedIntent value: " + updatedIntent.Slots["gender"].Value + updatedIntent.Slots["health"].Value + updatedIntent.Slots["postcode"].Value);
+                            log.Info("Current Dialogstate: " + intentRequest.DialogState);
                             return ResponseBuilder.DialogDelegate(updatedIntent);
                         }
                         else if (intentRequest.DialogState != "COMPLETED")
                         {
-                            log.Warning("Current Dialogstate: " + intentRequest.DialogState);
-                            log.Info("UpdatedIntent value: " + updatedIntent.Slots["gender"].Value + updatedIntent.Slots["health"].Value + updatedIntent.Slots["postcode"].Value);
-
+                            log.Info("Current Dialogstate: " + intentRequest.DialogState);
                             return ResponseBuilder.DialogDelegate(updatedIntent);
-
                         }
                         else
                         {
-                            //call API here it now complete
-                            log.Warning("Current Dialogstate: " + intentRequest.DialogState + " and calling API");
-                            MakeRequest();
-                            return CreateResponse("called the API", "");
-                            //var speech =  ""+ intentRequest.Intent.Slots["postcode"].Value + intentRequest.Intent.Slots["gender"].Value + intentRequest.Intent.Slots["health"].Value;
-                            //return CreateResponse(speech,"");
+                            //Dialog already completed
+                            log.Info("Current Dialogstate: " + intentRequest.DialogState);
+
+                            //Store slot values into globals variables
+                            log.Info("Extract slot values");
+                            //var slotValues = getSlotValues(intentRequest);
+
+                            //Call Postcode proxy API here
+
+
+                            //Call Life Expectancy API here
+                            log.Info("Calling life expectancy API");
+                            CallLifeExpectancyAPI(log);
+                            while (Globals.isCallAPIcomplete)
+                            {
+                                Thread.Sleep(100);
+                                log.Info("Waiting....");
+                            }
+
+                            //Return response
+                            return ResponseBuilder.Tell("Your average live around " + Globals.output_user_longestvity + " years old.");
                         }
-
-
                 }
             }
             else if (requestType == typeof(LaunchRequest))
             {
-                // create the welcome message
-                var speech = new SsmlOutputSpeech();
-                speech.Ssml = "<speak>Welcome to Hymans Robertson! We can find life expectancy for you.</speak>";
-
-                // create the speech reprompt
-                var repromptMessage = new PlainTextOutputSpeech();
-                repromptMessage.Text = "Let's try. How long I can live?";
-
-                // create the reprompt
-                var repromptBody = new Reprompt();
-                repromptBody.OutputSpeech = repromptMessage;
-
-                // create the response
-                var finalResponse = ResponseBuilder.Ask(speech, repromptBody);
-                return finalResponse;
+                return CreateResponse("Welcome to Hymans Robertson! We can find life expectancy for you. Let's try. How long I can live?", "Try how long I can live?");
             }
-            return response;
+            return ResponseBuilder.Tell("Goodbye");
         }
 
 
@@ -128,11 +127,11 @@ namespace AlexaAdvisors
         //This function will help to create message response with response and repromt message
         public static SkillResponse CreateResponse(string responseMessage, string reprompt)
         {
-            var speech = new PlainTextOutputSpeech();
-            speech.Text = responseMessage;
+            var speech = new SsmlOutputSpeech();
+            speech.Ssml = "<speak>" + responseMessage + "</speak>";
 
-            var repromptMessage = new PlainTextOutputSpeech();
-            repromptMessage.Text = reprompt;
+            var repromptMessage = new SsmlOutputSpeech();
+            repromptMessage.Ssml = "<speak>" + reprompt + "</speak>";
 
             var repromptBody = new Reprompt();
             repromptBody.OutputSpeech = repromptMessage;
@@ -150,75 +149,115 @@ namespace AlexaAdvisors
         }
 
         //This function will extract slot value when all slots were filled
-        /*public static void getSlotValues (IntentRequest request)
+        public static Slot GetSlotValues (IntentRequest request)
         {
+            //Globals.user_ages = request.Slots["age"].Value;
+            //Globals.user_gender = request.Slots["gender"].Value;
+            //Globals.user_postcode = request.Slots["postcode"].Value;
+            //Globals.user_health = request.Slots["health"].Value;
+
             var filledSlots = request.Intent.Slots;
-            var slotValues = new Slot;
-            if (filledSlots.resolutions.resolutionPerAuthority[0].status.code != null)
+            var slotValues = new Slot();
+            
+            foreach (var item in filledSlots.Keys)
             {
-                switch (filledSlots["health"].resolutions.resolutionPerAuthority[0].status.code)
+                var name = filledSlots[item].Name;
+                if (filledSlots[item].Resolution.Authorities[0].Status.Code != null)
                 {
-                    case "ER_SUCCESS_MATH":
-                        slotValues[filledSlots.Name] = {
-                            synonym: filledSlots.
-                        }
+                    switch (filledSlots[item].Resolution.Authorities[0].Status.Code)
+                    {
+                        case "ER_SUCCESS_MATCH":
+                            slotValues.Name = name;
+                            slotValues.Value = filledSlots[item].Value;
+                            slotValues.ConfirmationStatus = "NONE";
+                            break;
+
+                        case "ER_SUCCESS_NO_MATCH":
+                            slotValues.Name = name;
+                            slotValues.Value = null;
+                            slotValues.ConfirmationStatus = "NONE";
+                            break;
+
+                    }
                 }
             }
-            
-           
+            return slotValues;
+        }
 
-        }*/
-
-
-        //This function will check all slots in LifeExpectancy all filled
-        /*public static bool checkLifeExpectancySlots(IntentRequest req, TraceWriter log)
+        //This function call LifeExpectancy API
+        public static async void CallLifeExpectancyAPI(TraceWriter log)
         {
-            var result = false;
-            var slots = req.Intent.Slots;
-
-            if (slots["postcode"].Value != null && slots["gender"].Value != null && slots["health"].Value != null)
-            {
-                req.DialogState = "COMPLETED";
-                result = true;
-                log.Info("DialogStats = "+ req.DialogState);
-                log.Info("Postcode value = "+ slots["postcode"].Value);
-                log.Info("Postcode value = " + slots["gender"].Value);
-                log.Info("Postcode value = " + slots["health"].Value);
-
-            }
-
-            return result;
-        }*/
-
-        public static async void MakeRequest()
-        {
-            var client = new HttpClient();
-            var queryString = HttpUtility.ParseQueryString(string.Empty);
-            var subsricption_key = "ab05b31f579c4d92aa06bd61d4186b64";
-
-
             // Request headers
-
+            HttpClient client = new HttpClient();
             client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", subsricption_key);
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricption_key);
             client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
 
-            var uri = "https://hymans-labs.co.uk/lifeexpectancydev/?" + queryString;
+            var uri = "https://hymans-labs.co.uk/lifeexpectancydev/";
 
-            HttpResponseMessage response;
+            // Post request body
+            var body = new StringContent("{\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}}", Encoding.UTF8, "application/json");
+            log.Info(body.ToString());
 
-            // Request body
-            dynamic body = new JObject();
-            body.PersonA.age = "60";
-            body.PersonA.gender = "male";
-            body.PersonA.healthRelativeToPeers = "same";
-            body.PersonA.postcodeProxy = "171001411";
+            var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            var postResponse = await client.SendAsync(request);
 
-            byte[] byteData = Encoding.UTF8.GetBytes(body);
-            var content = new ByteArrayContent(byteData);
-            content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-            response = await client.PostAsync(uri, content);
+            Thread.Sleep(500);
 
+            var getAcceptHeader = "application/hal+json;v=1";
+            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse(getAcceptHeader));
+            var getUrl = postResponse.Headers.Location.AbsoluteUri;
+            var getResponse = await client.GetAsync(getUrl);
+
+            while (getResponse.StatusCode == HttpStatusCode.SeeOther)
+            {
+                Thread.Sleep(100);
+                getResponse = await client.GetAsync(getUrl);
+            }
+
+            var getResponseBody = await getResponse.Content.ReadAsStringAsync();
+            RootObject deserializedJson = JsonConvert.DeserializeObject<RootObject>(getResponseBody);
+            Globals.output_user_longestvity = deserializedJson.data.lifeExpectancyPersonA;
+            log.Info("longestvity = " + Globals.output_user_longestvity);
+            Globals.isCallAPIcomplete = true;
+        }
+
+        //This function call PostCodeProxy API by using postcode
+        /*public static async void CallPostCodeProxyAPI()
+        {
+
+        }*/
+
+        
+        //Create class for json
+        public class PersonA
+        {
+            public int age { get; set; }
+            public string gender { get; set; }
+            public string healthRelativeToPeers { get; set; }
+            public string postcodeProxy { get; set; }
+        }
+
+        public class RootObject
+        {
+            public string correlationId { get; set; }
+            public DataObject data { get; set; }
+        }
+
+        public class DataObject
+        {
+            public double lifeExpectancyPersonA { get; set; }
+            public double lifeExpectancyMedianPersonA { get; set; }
+            public LifeProbabilities lifeProbabilities { get; set; }
+        }
+
+        public class LifeProbabilities
+        {
+            public int[] timesteps { get; set; }
+            public int[] ageA { get; set; }
+            public double[] survivalProbA { get; set; }
+            public double[] deathAtAgeProbA { get; set; }
         }
 
     }

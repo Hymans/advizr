@@ -31,14 +31,12 @@ namespace AlexaAdvisors
         //This function creates globals variables
         public static class Globals
         {
-            public static int user_ages =0;
+            public static int user_ages = 0;
             public static string user_health = "";
             public static string user_gender = "";
             public static string user_postcode = "";
             public static string user_postcode_proxy = "";
-            public static double output_user_longestvity =0;
             public const string subsricption_key = "ab05b31f579c4d92aa06bd61d4186b64";
-            public static bool isCallAPIcomplete = false;
         }
 
 
@@ -102,15 +100,11 @@ namespace AlexaAdvisors
 
                             //Call Life Expectancy API here
                             log.Info("Calling life expectancy API");
-                            CallLifeExpectancyAPI(log);
-                            while (Globals.isCallAPIcomplete)
-                            {
-                                Thread.Sleep(100);
-                                log.Info("Waiting....");
-                            }
+
+                            var lifeExpectancyValue = await CallLifeExpectancyAPI(log);
 
                             //Return response
-                            return ResponseBuilder.Tell("Your average live around " + Globals.output_user_longestvity + " years old.");
+                            return ResponseBuilder.Tell("Your average live around " + lifeExpectancyValue + " years old.");
                         }
                 }
             }
@@ -151,11 +145,6 @@ namespace AlexaAdvisors
         //This function will extract slot value when all slots were filled
         public static Slot GetSlotValues (IntentRequest request)
         {
-            //Globals.user_ages = request.Slots["age"].Value;
-            //Globals.user_gender = request.Slots["gender"].Value;
-            //Globals.user_postcode = request.Slots["postcode"].Value;
-            //Globals.user_health = request.Slots["health"].Value;
-
             var filledSlots = request.Intent.Slots;
             var slotValues = new Slot();
             
@@ -185,7 +174,7 @@ namespace AlexaAdvisors
         }
 
         //This function call LifeExpectancy API
-        public static async void CallLifeExpectancyAPI(TraceWriter log)
+        public static async Task<double> CallLifeExpectancyAPI(TraceWriter log)
         {
             // Request headers
             HttpClient client = new HttpClient();
@@ -218,9 +207,11 @@ namespace AlexaAdvisors
 
             var getResponseBody = await getResponse.Content.ReadAsStringAsync();
             RootObject deserializedJson = JsonConvert.DeserializeObject<RootObject>(getResponseBody);
-            Globals.output_user_longestvity = deserializedJson.data.lifeExpectancyPersonA;
-            log.Info("longestvity = " + Globals.output_user_longestvity);
-            Globals.isCallAPIcomplete = true;
+            var lifeExpectancy = deserializedJson.data.lifeExpectancyPersonA;
+            log.Info("longestvity = " + lifeExpectancy);
+            //Globals.isCallAPIcomplete = true;
+            return lifeExpectancy;
+        
         }
 
         //This function call PostCodeProxy API by using postcode

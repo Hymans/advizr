@@ -33,12 +33,17 @@ namespace AlexaAdvisors
         //This function creates globals variables
         public static class Globals
         {
-            public static double user_age = 0;
-            public static string user_health = "";
-            public static string user_gender = "";
-            public static string user_postcode = "";
-            public static string user_postcode_proxy = "";
-            public const string subsricption_key = "ab05b31f579c4d92aa06bd61d4186b64";
+            public static double userAge = 0;
+            public static double userPotSize = 0;
+            public static double userPotEquity = 0;
+            public static double userPotCash = 0;
+            public static double userWithdrawalAmount = 0;
+            public static double userPotIncreaseRate = 0;
+            public static string userHealth = "";
+            public static string userGender = "";
+            public static string userPostcode = "";
+            public static string userPostcodeProxy = "";
+            public const string subsricptionKey = "ab05b31f579c4d92aa06bd61d4186b64";
         }
 
 
@@ -105,10 +110,10 @@ namespace AlexaAdvisors
                             GetSlotValues(intentRequest, log, updatedIntent);
 
                             //Check valid/invalid value
-                            if (Globals.user_gender == null || Globals.user_health == null)
+                            if (Globals.userGender == null || Globals.userHealth == null || Globals.userAge == 0)
                             {
                                 var speech = new SsmlOutputSpeech();
-                                speech.Ssml = "<speak>Sorry, your gender or health value is not valid. Please try again.</speak>";
+                                speech.Ssml = "<speak>Sorry, your input value is not valid. Please try again.</speak>";
 
                                 return ResponseBuilder.Tell(speech);
                             }
@@ -129,25 +134,10 @@ namespace AlexaAdvisors
                                 log.Info(" postcode = " + userPostcode);
                             } 
                             */
-                            
-                            
-                            //Call Postcode proxy API
 
 
+                            //Call Postcode proxy API here
 
-                            //Call Life Expectancy API
-                            /*
-                            log.Info("Calling life expectancy API");
-                            bool isSendProgress = await SendProgress("OK, I am finding your life expectancy. Please wait.", requestID, apiEndPoint, accessToken, log);
-                            if (isSendProgress)
-                            {
-                                log.Info("Send progress succeed");
-                            }
-                            else
-                            {
-                                log.Info("Send progress failed");
-                            }
-                            */
 
                             RootLifeExpectancy lifeExpectancyResult = await CallLifeExpectancyAPI(log);
                             var lifeExpectancyValue = lifeExpectancyResult.Data.LifeExpectancyPersonA;
@@ -156,7 +146,7 @@ namespace AlexaAdvisors
                             return ResponseBuilder.Tell("Your life expectancy is " + lifeExpectancyValue + " years old.");
                         }
                     case "DrawDown":
-                        
+
                         //Create updated intent
                         updatedIntent.Name = "DrawDown";
                         updatedIntent.ConfirmationStatus = "NONE";
@@ -176,20 +166,21 @@ namespace AlexaAdvisors
                         {
                             //Dialog already completed
                             log.Info("Current Dialogstate: " + intentRequest.DialogState);
-                            /*
-                            bool isSendProgress = await SendProgress("OK, I am calculating the result. Please wait.", requestID, apiEndPoint, accessToken, log);
-                            
-                            if (isSendProgress)
-                            {
-                                log.Info("Send progress succeed");
-                            }
-                            else
-                            {
-                                log.Info("Send progress failed");
-                            }
-                            */
 
-                            //Call Life Expectancy API
+                            //Store slot values into globals variables
+                            log.Info("Extract slot values");
+                            GetSlotValues(intentRequest, log, updatedIntent);
+
+                            //Check valid/invalid value
+                            if (Globals.userGender == null || Globals.userHealth == null || Globals.userAge == 0 || Globals.userPotSize == 0)
+                            {
+                                var speech = new SsmlOutputSpeech();
+                                speech.Ssml = "<speak>Sorry, your input value is not valid. Please try again.</speak>";
+
+                                return ResponseBuilder.Tell(speech);
+                            }
+
+                            //Call Drawdown API
                             log.Info("Calling Drawdown API");
                             RootDrawDown drawDownResult = await CallDrawDownAPI(log);
                             var lifeExpectancyValue = drawDownResult.Data.LifeExpectancyOutput.LifeExpectancyPersonA;
@@ -236,94 +227,99 @@ namespace AlexaAdvisors
         public static void GetSlotValues (IntentRequest request, TraceWriter log, Intent updatedIntent)
         {
             var filledSlots = request.Intent.Slots;
-            
+            var intentName = request.Intent.Name;
+
+
+            //Check these values for both life expectancy and drawdown intent
             //Value in the slot is valid
             if (filledSlots["gender"].Resolution.Authorities[0].Status.Code == "ER_SUCCESS_MATCH")
             {
-                Globals.user_gender = filledSlots["gender"].Resolution.Authorities[0].Values[0].Value.Name;
-                log.Info("gender = " + Globals.user_gender);
+                Globals.userGender = filledSlots["gender"].Resolution.Authorities[0].Values[0].Value.Name;
+                log.Info("gender = " + Globals.userGender);
             }
             if (filledSlots["health"].Resolution.Authorities[0].Status.Code == "ER_SUCCESS_MATCH")
             {
-                Globals.user_health = filledSlots["health"].Resolution.Authorities[0].Values[0].Value.Name;
-                log.Info("health = " + Globals.user_health);
-            } 
+                Globals.userHealth = filledSlots["health"].Resolution.Authorities[0].Values[0].Value.Name;
+                log.Info("health = " + Globals.userHealth);
+            }
             if (filledSlots["age"].Value != "?")
             {
-                Globals.user_age = Double.Parse(filledSlots["age"].Value);
-                log.Info("age = " + Globals.user_age);
+                Globals.userAge = Double.Parse(filledSlots["age"].Value);
+                log.Info("age = " + Globals.userAge);
             }
-            
-            //Value in the slot is invalid, have to ask user again
+
+            //Value in the slot is invalid
             if (filledSlots["gender"].Resolution.Authorities[0].Status.Code == "ER_SUCCESS_NO_MATCH")
             {
-                Globals.user_gender = null;
-                log.Info("gender = " + Globals.user_gender);
+                Globals.userGender = null;
+                log.Info("gender = " + Globals.userGender);
             }
 
             if (filledSlots["health"].Resolution.Authorities[0].Status.Code == "ER_SUCCESS_NO_MATCH")
             {
-                Globals.user_health = null;
-                log.Info("gender = " + Globals.user_health);
+                Globals.userHealth = null;
+                log.Info("gender = " + Globals.userHealth);
             }
 
             if (filledSlots["age"].Value == "?")
             {
-                Globals.user_age = 0;
-                log.Info("age = " + Globals.user_age);
+                Globals.userAge = 0;
+                log.Info("age = " + Globals.userAge);
             }
 
-        }
 
-        //This one more flexible but didn't work
-        /*public static void GetSlotValues (IntentRequest request, TraceWriter log)
-        {
-            var filledSlots = request.Intent.Slots;
-            Globals.user_ages = double.Parse(filledSlots["age"].Value);
-            log.Info("user age = " + Globals.user_ages);
-
-            foreach (var item in filledSlots.Keys)
+            //Check addition values for drawdown api
+            if(intentName == "DrawDown")
             {
-                log.Info(item);
-
-                var name = filledSlots[item].Name;
-                if (filledSlots[item].Resolution.Authorities[0].Status.Code != null)
+                //Value in the slot is valid
+                if (filledSlots["potSize"].Value != "?")
                 {
-                    log.Info(name);
-                    switch (filledSlots[item].Resolution.Authorities[0].Status.Code)
-                    {
-                        case "ER_SUCCESS_MATCH":
+                    Globals.userPotSize = Double.Parse(filledSlots["potSize"].Value);
+                    log.Info("potSize = " + Globals.userPotSize);
+                }
+                if (filledSlots["potEquity"].Value != "?")
+                {
+                    Globals.userPotEquity = Double.Parse(filledSlots["potEquity"].Value)/100;
+                    log.Info("potEquity = " + Globals.userPotEquity);
+                }
+                if (filledSlots["withdrawalAmount"].Value != "?")
+                {
+                    Globals.userWithdrawalAmount = Double.Parse(filledSlots["withdrawalAmount"].Value);
+                    log.Info("withdrawalAmount = " + Globals.userWithdrawalAmount);
+                }
+                if (filledSlots["potIncreaseRate"].Value != "?")
+                {
+                    Globals.userPotIncreaseRate = Double.Parse(filledSlots["potIncreaseRate"].Value)/100;
+                    log.Info("potIncreaseRate = " + Globals.userPotIncreaseRate);
+                }
 
-                           if (name == "health")
-                            {
-                                Globals.user_health = filledSlots[item].Resolution.Authorities[0].Values[0].Value.Name;
-                                log.Info("user health = " + Globals.user_health);
-                            }
-                            else if (name =="gender")
-                            {
-                                Globals.user_gender = filledSlots[item].Resolution.Authorities[0].Values[0].Value.Name;
-                                log.Info("user gender = " + Globals.user_gender);
-                            }
-                            break;
+                //Caculate userPotCash by 1 - userPotEquity
+                Globals.userPotCash = 1 - Globals.userPotEquity;
+                log.Info("potCash = " + Globals.userPotCash);
 
-                        case "ER_SUCCESS_NO_MATCH":
-
-                           if (name.Equals("health"))
-                            {
-                                Globals.user_health = "";
-                                log.Info("user health is not okay.");
-                            }
-                            else if (name.Equals("gender"))
-                            {
-                                Globals.user_gender = "";
-                                log.Info("user gender is not okay.");
-                            }
-                            break;
-
-                    }
+                //Value in the slot is invalid
+                if (filledSlots["potSize"].Value == "?")
+                {
+                    Globals.userPotSize = 0;
+                    log.Info("potSize = " + Globals.userPotSize);
+                }
+                if (filledSlots["potEquity"].Value == "?")
+                {
+                    Globals.userPotEquity = 0;
+                    log.Info("potEquity = " + Globals.userPotEquity);
+                }
+                if (filledSlots["withdrawalAmount"].Value == "?")
+                {
+                    Globals.userWithdrawalAmount = 0;
+                    log.Info("withdrawalAmount = " + Globals.userWithdrawalAmount);
+                }
+                if (filledSlots["potIncreaseRate"].Value == "?")
+                {
+                    Globals.userPotIncreaseRate = 0;
+                    log.Info("potIncreaseRate = " + Globals.userPotIncreaseRate);
                 }
             }
-        }*/
+        }
 
         //Get User Postcode
         private static async Task<string> GetUserLocations(String deviceID, String accessToken, String apiEndPoint, TraceWriter log)
@@ -372,13 +368,13 @@ namespace AlexaAdvisors
             // Request headers
             HttpClient client = new HttpClient();
             client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricption_key);
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricptionKey);
             client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
 
             var uri = "https://hymans-labs.co.uk/lifeexpectancydev/";
 
             // Post request body
-            var body = new StringContent("{\"personA\": {\"age\": "+Globals.user_age+",\"gender\": \""+Globals.user_gender+"\",\"healthRelativeToPeers\": \""+Globals.user_health+"\",\"postcodeProxy\": \"171001411\"}}", Encoding.UTF8, "application/json");
+            var body = new StringContent("{\"personA\": {\"age\": "+Globals.userAge+",\"gender\": \""+Globals.userGender+"\",\"healthRelativeToPeers\": \""+Globals.userHealth+"\",\"postcodeProxy\": \"171001411\"}}", Encoding.UTF8, "application/json");
             log.Info(body.ToString());
 
             var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
@@ -427,7 +423,7 @@ namespace AlexaAdvisors
             var uri = "https://hymans-labs.co.uk/decumulationrundowndev/assess";
 
             //Post request body
-            var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": 100000,\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": [0.5],\"cash\": [0.5]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": [5000],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": 0.01}}}}", Encoding.UTF8, "application/json");
+            var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": "+Globals.userAge+",\"gender\": \""+Globals.userGender+"\",\"healthRelativeToPeers\": \""+Globals.userHealth+"\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": "+Globals.userPotSize+",\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": ["+Globals.userPotEquity+"],\"cash\": ["+Globals.userPotCash+"]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": ["+Globals.userWithdrawalAmount+"],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": "+Globals.userPotIncreaseRate+"}}}}", Encoding.UTF8, "application/json");
             var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             var postResponse = await client.SendAsync(request);

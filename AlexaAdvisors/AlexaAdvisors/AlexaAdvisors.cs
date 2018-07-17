@@ -106,25 +106,25 @@ namespace AlexaAdvisors
                             log.Info("Current Dialogstate: " + intentRequest.DialogState);
 
                             //Store slot values into globals variables
-                            log.Info("Extract slot values");
+                            log.Info("Extract slots value");
                             GetSlotValues(intentRequest, log, updatedIntent);
 
                             //Check valid/invalid value
-                            if (Globals.userGender == null || Globals.userHealth == null || Globals.userAge == 0)
+                            log.Info("Check slots value");
+                            var isSlotsValid = CheckSlotsValue();
+                            log.Info("Check slots value:" + isSlotsValid);
+                            if (!isSlotsValid)
                             {
-                                var speech = new SsmlOutputSpeech();
-                                speech.Ssml = "<speak>Sorry, your input value is not valid. Please try again.</speak>";
-
-                                return ResponseBuilder.Tell(speech);
+                                return InvalidSlotsResponse();
                             }
 
                             //Find User Location
                             /*
                             string userPostcode = await GetUserLocations(deviceID, accessToken, apiEndPoint, log);
                             
-                            if(userPostcode == "")
+                            if(userPostcode == null)
                             {
-                                //Ask for location permission here
+                                //Ask for location permission
                                 IEnumerable<string> locationPermission = new string[] { "read::alexa:device:all:address:country_and_postal_code" };
                                 return ResponseBuilder.TellWithAskForPermissionConsentCard("Please allow me to access the location to find life expectancy. Please check permission request on your mobile.", locationPermission);
 
@@ -135,10 +135,10 @@ namespace AlexaAdvisors
                             } 
                             */
 
+                            //Call Postcode proxy API
 
-                            //Call Postcode proxy API here
 
-
+                            //Call Life expectancy API
                             RootLifeExpectancy lifeExpectancyResult = await CallLifeExpectancyAPI(log);
                             var lifeExpectancyValue = lifeExpectancyResult.Data.LifeExpectancyPersonA;
 
@@ -172,13 +172,13 @@ namespace AlexaAdvisors
                             GetSlotValues(intentRequest, log, updatedIntent);
 
                             //Check valid/invalid value
-                            if (Globals.userGender == null || Globals.userHealth == null || Globals.userAge == 0 || Globals.userPotSize == 0)
+                            var isSlotsValid = CheckSlotsValue();
+                            log.Info("Check slots valid:" + isSlotsValid);
+                            if (!isSlotsValid)
                             {
-                                var speech = new SsmlOutputSpeech();
-                                speech.Ssml = "<speak>Sorry, your input value is not valid. Please try again.</speak>";
-
-                                return ResponseBuilder.Tell(speech);
+                                return InvalidSlotsResponse();
                             }
+                           
 
                             //Call Drawdown API
                             log.Info("Calling Drawdown API");
@@ -186,7 +186,7 @@ namespace AlexaAdvisors
                             var lifeExpectancyValue = drawDownResult.Data.LifeExpectancyOutput.LifeExpectancyPersonA;
 
                             //Return response
-                            return ResponseBuilder.Tell("Your life expectancy is"+ lifeExpectancyValue + " years old.");
+                            return ResponseBuilder.Tell("Your life expectancy is xxxx years old.");
                         }
                 }
             }
@@ -229,7 +229,6 @@ namespace AlexaAdvisors
             var filledSlots = request.Intent.Slots;
             var intentName = request.Intent.Name;
 
-
             //Check these values for both life expectancy and drawdown intent
             //Value in the slot is valid
             if (filledSlots["gender"].Resolution.Authorities[0].Status.Code == "ER_SUCCESS_MATCH")
@@ -258,12 +257,12 @@ namespace AlexaAdvisors
             if (filledSlots["health"].Resolution.Authorities[0].Status.Code == "ER_SUCCESS_NO_MATCH")
             {
                 Globals.userHealth = null;
-                log.Info("gender = " + Globals.userHealth);
+                log.Info("health = " + Globals.userHealth);
             }
 
             if (filledSlots["age"].Value == "?")
             {
-                Globals.userAge = 0;
+                Globals.userAge = -1;
                 log.Info("age = " + Globals.userAge);
             }
 
@@ -300,22 +299,22 @@ namespace AlexaAdvisors
                 //Value in the slot is invalid
                 if (filledSlots["potSize"].Value == "?")
                 {
-                    Globals.userPotSize = 0;
+                    Globals.userPotSize = -1;
                     log.Info("potSize = " + Globals.userPotSize);
                 }
                 if (filledSlots["potEquity"].Value == "?")
                 {
-                    Globals.userPotEquity = 0;
+                    Globals.userPotEquity = -1;
                     log.Info("potEquity = " + Globals.userPotEquity);
                 }
                 if (filledSlots["withdrawalAmount"].Value == "?")
                 {
-                    Globals.userWithdrawalAmount = 0;
+                    Globals.userWithdrawalAmount = -1;
                     log.Info("withdrawalAmount = " + Globals.userWithdrawalAmount);
                 }
                 if (filledSlots["potIncreaseRate"].Value == "?")
                 {
-                    Globals.userPotIncreaseRate = 0;
+                    Globals.userPotIncreaseRate = -1;
                     log.Info("potIncreaseRate = " + Globals.userPotIncreaseRate);
                 }
             }
@@ -337,7 +336,7 @@ namespace AlexaAdvisors
             var statusCode = getResponse.StatusCode;
             if(statusCode == HttpStatusCode.Forbidden){
                 log.Info("403 Forbidden: No permission to access the location");
-                return "";
+                return null;
              
             }
             else if(statusCode == HttpStatusCode.OK)
@@ -454,7 +453,7 @@ namespace AlexaAdvisors
 
 
         //This function will send progress response to user
-        public static async Task<bool> SendProgress(string progressMessage, string requestID, string apiEndPoint, string accessToken, TraceWriter log)
+        public static async Task<bool> SendProgress(string requestID, string apiEndPoint, string accessToken, TraceWriter log)
         {
             // Set value for header and URL
             var postURL = apiEndPoint + "/v1/directives/";
@@ -464,8 +463,14 @@ namespace AlexaAdvisors
             log.Info("authorization: " + authorization);
 
             HttpClient client = new HttpClient();
-            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json"));
+            //client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json"));
             client.DefaultRequestHeaders.Add("Authorization", authorization);
+
+            var progressMessage = new SsmlOutputSpeech();
+            //var audioSrc = "<audio src=\"https://s3-eu-west-1.amazonaws.com/backgroundsoundforalexa/waiting_sound.mp3\"/>";
+            progressMessage.Ssml = "<speak>We are calculating the result. Please wait.</speak>";
+
+            log.Info("Message = " + progressMessage);
 
             var body = new StringContent("{\"header\":{\"requestId\":\""+requestID+"\"},\"directive\":{\"type\":\"VoicePlayer.Speak\",\"speech\":\""+progressMessage+"\"}}", Encoding.UTF8, "application/json");
             log.Info(body.ToString());
@@ -475,6 +480,7 @@ namespace AlexaAdvisors
             var postResponse = await client.SendAsync(request);
 
             log.Info("Send Progress response code: "+postResponse.StatusCode.ToString());
+            log.Info("Post response header: "+postResponse.Headers.ToString());
 
             if (postResponse.StatusCode == HttpStatusCode.NoContent)
             {
@@ -485,6 +491,60 @@ namespace AlexaAdvisors
                 return false;
             }
 
+
+            
+           
+
+        }
+
+        //This function will check valid/invalid slots
+        public static bool CheckSlotsValue()
+        {
+            if (Globals.userGender == null || Globals.userHealth == null || Globals.userAge < 0 || Globals.userPotSize < 0 || Globals.userPotEquity < 0 || Globals.userPotIncreaseRate < 0 || Globals.userWithdrawalAmount < 0)
+            {
+                return false;
+            }
+            return true;
+        }
+        
+        //This function will return message for invalid slots
+        public static SkillResponse InvalidSlotsResponse()
+        {
+            var speech = "Sorry, your information: ";
+            if(Globals.userGender == null)
+            {
+                speech = speech + "gender, ";
+            }
+            if(Globals.userHealth == null)
+            {
+                speech = speech + "health, ";
+            }
+            if (Globals.userAge < 0)
+            {
+                speech = speech + "age, ";
+            }
+            if (Globals.userPotSize < 0)
+            {
+                speech = speech + "investment pot size, ";
+            }
+            if (Globals.userPotEquity < 0)
+            {
+                speech = speech + "investment equity size, ";
+            }
+            if (Globals.userPotIncreaseRate < 0)
+            {
+                speech = speech + "portfolio increasing rate, ";
+            }
+            if (Globals.userWithdrawalAmount < 0)
+            {
+                speech = speech + "withdrawal amount, ";
+            }
+
+            speech = speech + "is not valid. Please try again.";
+            var response = new SsmlOutputSpeech();
+            response.Ssml = "<speak>" + speech + "</speak>";
+
+            return ResponseBuilder.Tell(response);
         }
 
 

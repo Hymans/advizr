@@ -81,10 +81,13 @@ namespace AlexaAdvisors
 
 
             //TEST LifeExpectancy
-            /*
+            
+
+            var watch = Stopwatch.StartNew();
+            // Request headers
             HttpClient client = new HttpClient();
             client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricption_key);
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", "ab05b31f579c4d92aa06bd61d4186b64");
             client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
 
             var uri = "https://hymans-labs.co.uk/lifeexpectancydev/";
@@ -97,29 +100,31 @@ namespace AlexaAdvisors
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             var postResponse = await client.SendAsync(request);
 
-            Thread.Sleep(500);
-
             var getAcceptHeader = "application/hal+json;v=1";
             client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse(getAcceptHeader));
             var getUrl = postResponse.Headers.Location.AbsoluteUri;
+            Thread.Sleep(100);
             var getResponse = await client.GetAsync(getUrl);
+            var getResponseBody = await getResponse.Content.ReadAsStringAsync();
+            RootLifeExpectancy deserializedJson = JsonConvert.DeserializeObject<RootLifeExpectancy>(getResponseBody);
 
-            while (getResponse.StatusCode == HttpStatusCode.SeeOther)
+            while (deserializedJson.Status == "InProgress")
             {
                 Thread.Sleep(100);
                 getResponse = await client.GetAsync(getUrl);
+                getResponseBody = await getResponse.Content.ReadAsStringAsync();
+                deserializedJson = JsonConvert.DeserializeObject<RootLifeExpectancy>(getResponseBody);
+
             }
 
-            var getResponseBody = await getResponse.Content.ReadAsStringAsync();
-            RootLifeExpectancy deserializedJson = JsonConvert.DeserializeObject<RootLifeExpectancy>(getResponseBody);
-            */
-
+            watch.Stop();
+            log.Info("Time used for life expectancy API: " + watch.ElapsedMilliseconds + " ms");
 
 
 
             //TEST Drawdown
             // Request headers
-
+            /*
             var watch = Stopwatch.StartNew();
 
             HttpClient client = new HttpClient();
@@ -164,9 +169,9 @@ namespace AlexaAdvisors
 
             var test = deserializedJson.Data.LifeExpectancyOutput.LifeExpectancyPersonA;
 
-          
+          */
 
-          return new OkObjectResult("passed");
+            return new OkObjectResult("passed");
         }
 
         public static class Globals

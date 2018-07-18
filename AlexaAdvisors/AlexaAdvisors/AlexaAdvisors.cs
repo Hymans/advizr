@@ -43,7 +43,9 @@ namespace AlexaAdvisors
             public static string userGender = "";
             public static string userPostcode = "";
             public static string userPostcodeProxy = "";
-            public const string subsricptionKey = "ab05b31f579c4d92aa06bd61d4186b64";
+            public const string subsricptionKeyLifeExpectancy = "ab05b31f579c4d92aa06bd61d4186b64";
+            public const string subsricptionKeyDrawDown = "ab05b31f579c4d92aa06bd61d4186b64";
+
         }
 
 
@@ -178,26 +180,39 @@ namespace AlexaAdvisors
                             {
                                 return InvalidSlotsResponse();
                             }
-                           
 
                             //Call Drawdown API
                             log.Info("Calling Drawdown API");
                             RootDrawDown drawDownResult = await CallDrawDownAPI(log);
-                            var lifeExpectancyValue = drawDownResult.Data.LifeExpectancyOutput.LifeExpectancyPersonA;
+                            var longestvityPercent = drawDownResult.Data.LongevityWeightedProbSuccess*100;
 
                             //Return response
-                            return ResponseBuilder.Tell("Your life expectancy is xxxx years old.");
+                            return ResponseBuilder.Tell("You have chance "+longestvityPercent+"percent to archive your goal.");
                         }
+                    case "WhatHymans":
+                        var whatSpeech = "At Hymans Robertson, we provide independent pensions, investments, benefits and risk consulting services, as well as data and technology solutions, to employers, trustees and financial services institutions. For more information please visit www.hymans.co.uk";
+                        var whatReprompt = "Let's try how long can I live.";
+                        return CreateResponse(whatSpeech, whatReprompt);
+
+                    case "WhyHymans":
+                        var whySpeech = "At the forefront of our industry, we’re influencing the way it works. Proud pioneers for the past 95 years, we’re at the vanguard of innovation. Our solutions give companies, trustees and members everything they need for brighter pensions prospects.";
+                        var whyReprompt = "Let's try how long can I live.";
+                        return CreateResponse(whySpeech, whyReprompt);
+
+                    case "WhereHymans":
+                        var whereSpeech = "We have offices located at London, Birmingham, Edinburgh and Glassglow. If you want to contact us, please visit www.hymans.co.uk";
+                        var whereReprompt = "Let's try how long can I live.";
+                        return CreateResponse(whereSpeech, whereReprompt);
                 }
             }
             else if (requestType == typeof(LaunchRequest))
             {
                 return CreateResponse("Welcome to Hymans Robertson! We can find life expectancy for you. Let's try. How long can I live?", "Try how long can I live?");
             }
-            return ResponseBuilder.Tell("Goodbye");
+            return ResponseBuilder.Tell("Sorry, we don't know your command. Please try again.");
         }
 
-
+        
         /* HELPER FUNCTIONS */
         //This function will help to create message response with response and repromt message
         public static SkillResponse CreateResponse(string responseMessage, string reprompt)
@@ -367,7 +382,7 @@ namespace AlexaAdvisors
             // Request headers
             HttpClient client = new HttpClient();
             client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricptionKey);
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricptionKeyLifeExpectancy);
             client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
 
             var uri = "https://hymans-labs.co.uk/lifeexpectancydev/";
@@ -416,10 +431,10 @@ namespace AlexaAdvisors
             //Post Request headers
             HttpClient client = new HttpClient();
             client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", "9a511111d99a41f5b298ed8f4f0e9ac3");
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricptionKeyDrawDown);
             client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
 
-            var uri = "https://hymans-labs.co.uk/decumulationrundowndev/assess";
+            var uri = "https://hymans-labs.co.uk/decumulationincomeforlifedev/drawdown/assess/";
 
             //Post request body
             var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": "+Globals.userAge+",\"gender\": \""+Globals.userGender+"\",\"healthRelativeToPeers\": \""+Globals.userHealth+"\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": "+Globals.userPotSize+",\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": ["+Globals.userPotEquity+"],\"cash\": ["+Globals.userPotCash+"]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": ["+Globals.userWithdrawalAmount+"],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": "+Globals.userPotIncreaseRate+"}}}}", Encoding.UTF8, "application/json");
@@ -582,7 +597,7 @@ namespace AlexaAdvisors
             public string CorrelationId { get; set; }
 
             [JsonProperty("data")]
-            public DrawdownResult Data { get; set; }
+            public DrawDownResult Data { get; set; }
 
             [JsonProperty("status")]
             public string Status { get; set; }
@@ -591,7 +606,7 @@ namespace AlexaAdvisors
             public Links Links { get; set; }
         }
 
-        public partial class DrawdownResult
+        public partial class DrawDownResult
         {
             [JsonProperty("lifeExpectancyOutput")]
             public LifeExpectancyOutput LifeExpectancyOutput { get; set; }
@@ -605,11 +620,17 @@ namespace AlexaAdvisors
             [JsonProperty("fundAmountReal")]
             public Dictionary<string, double[]> FundAmountReal { get; set; }
 
+            [JsonProperty("probFundGreaterThanZero")]
+            public double[] ProbFundGreaterThanZero { get; set; }
+
             [JsonProperty("potentialAnnuityIncomeFromFundReal")]
             public Dictionary<string, double[]> PotentialAnnuityIncomeFromFundReal { get; set; }
 
             [JsonProperty("fundAmountPostLegacyReal")]
             public Dictionary<string, double[]> FundAmountPostLegacyReal { get; set; }
+
+            [JsonProperty("probFundGreaterThanLegacy")]
+            public double[] ProbFundGreaterThanLegacy { get; set; }
 
             [JsonProperty("potentialAnnuityIncomePostLegacyReal")]
             public Dictionary<string, double[]> PotentialAnnuityIncomePostLegacyReal { get; set; }
@@ -629,20 +650,11 @@ namespace AlexaAdvisors
             [JsonProperty("totalWithdrawalsAndIncomeReal")]
             public Dictionary<string, double[]> TotalWithdrawalsAndIncomeReal { get; set; }
 
-            [JsonProperty("probFundGreaterThanZero")]
-            public double[] ProbFundGreaterThanZero { get; set; }
-
-            [JsonProperty("probFundGreaterThanLegacy")]
-            public double[] ProbFundGreaterThanLegacy { get; set; }
-
             [JsonProperty("probAchieveMinimumIncome")]
             public long[] ProbAchieveMinimumIncome { get; set; }
 
-            [JsonProperty("probAchieveFinalAnnuityIncomePostLegacy")]
-            public double[] ProbAchieveFinalAnnuityIncomePostLegacy { get; set; }
-
             [JsonProperty("longevityWeightedProbSuccess")]
-            public double[] LongevityWeightedProbSuccess { get; set; }
+            public double LongevityWeightedProbSuccess { get; set; }
         }
 
         public partial class LifeExpectancyOutput

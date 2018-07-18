@@ -81,7 +81,7 @@ namespace AlexaAdvisors
 
 
             //TEST LifeExpectancy
-            
+            /*
 
             var watch = Stopwatch.StartNew();
             // Request headers
@@ -119,12 +119,12 @@ namespace AlexaAdvisors
 
             watch.Stop();
             log.Info("Time used for life expectancy API: " + watch.ElapsedMilliseconds + " ms");
-
+            */
 
 
             //TEST Drawdown
             // Request headers
-            /*
+            
             var watch = Stopwatch.StartNew();
 
             HttpClient client = new HttpClient();
@@ -132,7 +132,7 @@ namespace AlexaAdvisors
             client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", "9a511111d99a41f5b298ed8f4f0e9ac3");
             client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
 
-            var uri = "https://hymans-labs.co.uk/decumulationrundowndev/assess";
+            var uri = "https://hymans-labs.co.uk/decumulationincomeforlifedev/drawdown/assess/";
 
             // Post request body
             var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": 100000,\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": [0.5],\"cash\": [0.5]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": [5000],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": 0.01}}}}", Encoding.UTF8, "application/json");
@@ -167,9 +167,9 @@ namespace AlexaAdvisors
                 deserializedJson = JsonConvert.DeserializeObject<RootDrawDown>(getResponseBody);
             }
 
-            var test = deserializedJson.Data.LifeExpectancyOutput.LifeExpectancyPersonA;
+            var test = deserializedJson.Data.LongevityWeightedProbSuccess;
 
-          */
+          
 
             return new OkObjectResult("passed");
         }
@@ -221,7 +221,7 @@ namespace AlexaAdvisors
             public string CorrelationId { get; set; }
 
             [JsonProperty("data")]
-            public DrawdownResult Data { get; set; }
+            public DrawDownResult Data { get; set; }
 
             [JsonProperty("status")]
             public string Status { get; set; }
@@ -230,7 +230,7 @@ namespace AlexaAdvisors
             public Links Links { get; set; }
         }
 
-        public partial class DrawdownResult
+        public partial class DrawDownResult
         {
             [JsonProperty("lifeExpectancyOutput")]
             public LifeExpectancyOutput LifeExpectancyOutput { get; set; }
@@ -244,11 +244,17 @@ namespace AlexaAdvisors
             [JsonProperty("fundAmountReal")]
             public Dictionary<string, double[]> FundAmountReal { get; set; }
 
+            [JsonProperty("probFundGreaterThanZero")]
+            public double[] ProbFundGreaterThanZero { get; set; }
+
             [JsonProperty("potentialAnnuityIncomeFromFundReal")]
             public Dictionary<string, double[]> PotentialAnnuityIncomeFromFundReal { get; set; }
 
             [JsonProperty("fundAmountPostLegacyReal")]
             public Dictionary<string, double[]> FundAmountPostLegacyReal { get; set; }
+
+            [JsonProperty("probFundGreaterThanLegacy")]
+            public double[] ProbFundGreaterThanLegacy { get; set; }
 
             [JsonProperty("potentialAnnuityIncomePostLegacyReal")]
             public Dictionary<string, double[]> PotentialAnnuityIncomePostLegacyReal { get; set; }
@@ -268,20 +274,11 @@ namespace AlexaAdvisors
             [JsonProperty("totalWithdrawalsAndIncomeReal")]
             public Dictionary<string, double[]> TotalWithdrawalsAndIncomeReal { get; set; }
 
-            [JsonProperty("probFundGreaterThanZero")]
-            public double[] ProbFundGreaterThanZero { get; set; }
-
-            [JsonProperty("probFundGreaterThanLegacy")]
-            public double[] ProbFundGreaterThanLegacy { get; set; }
-
             [JsonProperty("probAchieveMinimumIncome")]
             public long[] ProbAchieveMinimumIncome { get; set; }
 
-            [JsonProperty("probAchieveFinalAnnuityIncomePostLegacy")]
-            public double[] ProbAchieveFinalAnnuityIncomePostLegacy { get; set; }
-
             [JsonProperty("longevityWeightedProbSuccess")]
-            public double[] LongevityWeightedProbSuccess { get; set; }
+            public double LongevityWeightedProbSuccess { get; set; }
         }
 
         public partial class LifeExpectancyOutput

@@ -145,7 +145,7 @@ namespace AlexaAdvisors
                             var lifeExpectancyValue = lifeExpectancyResult.Data.LifeExpectancyPersonA;
 
                             //Return response
-                            return ResponseBuilder.Tell("Your life expectancy is " + lifeExpectancyValue + " years old.");
+                            return ResponseBuilder.Tell("According to the statistic, your life expectancy is " + lifeExpectancyValue + " years old. That's amazing.");
                         }
                     case "DrawDown":
 
@@ -187,7 +187,14 @@ namespace AlexaAdvisors
                             var longestvityPercent = drawDownResult.Data.LongevityWeightedProbSuccess*100;
 
                             //Return response
-                            return ResponseBuilder.Tell("You have chance "+longestvityPercent+"percent to archive your goal.");
+                            if(longestvityPercent < 50)
+                            {
+                                return ResponseBuilder.Tell("You have a chance " + longestvityPercent + "percent to archive your goal. You might need to adjust your target to increase the probabilities.");
+                            }
+                            else
+                            {
+                                return ResponseBuilder.Tell("Wow! We have a great news. You have a chance " + longestvityPercent + "percent to archive your goal.");
+                            }
                         }
                     case "WhatHymans":
                         var whatSpeech = "At Hymans Robertson, we provide independent pensions, investments, benefits and risk consulting services, as well as data and technology solutions, to employers, trustees and financial services institutions. For more information please visit www.hymans.co.uk";
@@ -200,7 +207,7 @@ namespace AlexaAdvisors
                         return CreateResponse(whySpeech, whyReprompt);
 
                     case "WhereHymans":
-                        var whereSpeech = "We have offices located at London, Birmingham, Edinburgh and Glassglow. If you want to contact us, please visit www.hymans.co.uk";
+                        var whereSpeech = "We have offices located in London, Birmingham, Edinburgh, and Glasglow. If you want to contact us, please visit www.hymans.co.uk";
                         var whereReprompt = "Let's try how long can I live.";
                         return CreateResponse(whereSpeech, whereReprompt);
                 }

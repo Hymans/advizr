@@ -87,6 +87,7 @@ namespace AlexaAdvisors
                         return ResponseBuilder.Tell("See you next time. Goodbye.");
 
                     case "LifeExpectancy":
+
                         //Create updated intent
                         updatedIntent.Name = "LifeExpectancy";
                         updatedIntent.ConfirmationStatus = "NONE";
@@ -99,6 +100,28 @@ namespace AlexaAdvisors
                         }
                         else if (intentRequest.DialogState != "COMPLETED")
                         {
+                            if (intentRequest.Intent.Slots["locationType"].Value == "device location")
+                            {
+                                //Find User Location 
+                                string userPostcode = await GetUserLocations(deviceID, accessToken, apiEndPoint, log);
+
+                                if(userPostcode == null)
+                                {
+                                    //Ask for location permission
+                                    IEnumerable<string> locationPermission = new string[] { "read::alexa:device:all:address:country_and_postal_code" };
+                                    return ResponseBuilder.TellWithAskForPermissionConsentCard("Please allow me to access the location to find life expectancy. Please check permission request on your mobile.", locationPermission);
+
+                                }
+                                else
+                                {
+                                    log.Info(" postcode = " + userPostcode);
+                                } 
+                                
+                                var postcode = "EH144AS";
+                                log.Info("Got user location from device:"+postcode);
+                                updatedIntent.Slots["postcode"].Value = postcode;
+                            }
+                            
                             log.Info("Current Dialogstate: " + intentRequest.DialogState);
                             return ResponseBuilder.DialogDelegate(updatedIntent);
                         }
@@ -112,32 +135,15 @@ namespace AlexaAdvisors
                             GetSlotValues(intentRequest, log, updatedIntent);
 
                             //Check valid/invalid value
-                            log.Info("Check slots value");
                             var isSlotsValid = CheckSlotsValue();
-                            log.Info("Check slots value:" + isSlotsValid);
+                            log.Info("Is slots value valid:" + isSlotsValid);
                             if (!isSlotsValid)
                             {
                                 return InvalidSlotsResponse();
                             }
 
-                            //Find User Location
-                            /*
-                            string userPostcode = await GetUserLocations(deviceID, accessToken, apiEndPoint, log);
-                            
-                            if(userPostcode == null)
-                            {
-                                //Ask for location permission
-                                IEnumerable<string> locationPermission = new string[] { "read::alexa:device:all:address:country_and_postal_code" };
-                                return ResponseBuilder.TellWithAskForPermissionConsentCard("Please allow me to access the location to find life expectancy. Please check permission request on your mobile.", locationPermission);
-
-                            }
-                            else
-                            {
-                                log.Info(" postcode = " + userPostcode);
-                            } 
-                            */
-
                             //Call Postcode proxy API
+
 
 
                             //Call Life expectancy API
@@ -145,7 +151,7 @@ namespace AlexaAdvisors
                             var lifeExpectancyValue = lifeExpectancyResult.Data.LifeExpectancyPersonA;
 
                             //Return response
-                            return ResponseBuilder.Tell("According to the statistic, your life expectancy is " + lifeExpectancyValue + " years old. That's amazing.");
+                            return ResponseBuilder.Tell("Your life expectancy is " + lifeExpectancyValue + " years old. That's amazing.");
                         }
                     case "DrawDown":
 
@@ -156,6 +162,8 @@ namespace AlexaAdvisors
 
                         if (intentRequest.DialogState == "STARTED")
                         {
+                            log.Info("Call Drawdown in the background");
+                            CallDrawDownBackground(log);
                             log.Info("Current Dialogstate: " + intentRequest.DialogState);
                             return ResponseBuilder.DialogDelegate(updatedIntent);
                         }
@@ -189,11 +197,11 @@ namespace AlexaAdvisors
                             //Return response
                             if(longestvityPercent < 50)
                             {
-                                return ResponseBuilder.Tell("You have a chance " + longestvityPercent + "percent to archive your goal. You might need to adjust your target to increase the probabilities.");
+                                return ResponseBuilder.Tell("You have a chance " + longestvityPercent + " percent to achieve your goal. You might want to adjust your target to increase the chance .");
                             }
                             else
                             {
-                                return ResponseBuilder.Tell("Wow! We have a great news. You have a chance " + longestvityPercent + "percent to archive your goal.");
+                                return ResponseBuilder.Tell("Wow! We have a great news. You have a chance " + longestvityPercent + " percent to achieve your goal.");
                             }
                         }
                     case "WhatHymans":
@@ -471,6 +479,38 @@ namespace AlexaAdvisors
             log.Info("Time used for life drawdown API: " + watch.ElapsedMilliseconds + " ms");
 
             return deserializedJson;
+        }
+
+        //This function will call drawdown API in background to make it faster when calling the 2nd time
+        public static async void CallDrawDownBackground(TraceWriter log)
+        {
+            var watch = Stopwatch.StartNew();
+            //Post Request headers
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricptionKeyDrawDown);
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
+
+            var uri = "https://hymans-labs.co.uk/decumulationincomeforlifedev/drawdown/assess/";
+
+            //Post request body
+            var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": 100000,\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": [0.5],\"cash\": [0.5]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": [5000],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": 0.01}}}}", Encoding.UTF8, "application/json");
+            var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            var postResponse = await client.SendAsync(request);
+
+            //Get request header and URL
+            var getAcceptHeader = "application/hal+json;v=1";
+            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse(getAcceptHeader));
+            var getUrl = postResponse.Headers.Location.AbsoluteUri;
+
+            //Get response
+            var getResponse = await client.GetAsync(getUrl);
+            log.Info("Background API status code: "+getResponse.StatusCode.ToString());
+
+            watch.Stop();
+            log.Info("Time used for life drawdown background API: " + watch.ElapsedMilliseconds + " ms");
+
         }
 
 

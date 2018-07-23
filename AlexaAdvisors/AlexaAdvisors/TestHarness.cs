@@ -135,7 +135,7 @@ namespace AlexaAdvisors
             var uri = "https://hymans-labs.co.uk/decumulationincomeforlifedev/drawdown/assess/";
 
             // Post request body
-            var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": 100000,\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": [0.5],\"cash\": [0.5]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": [5000],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": 0.01}}}}", Encoding.UTF8, "application/json");
+            var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": 40,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": 100000,\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": [0.5],\"cash\": [0.5]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": [500],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": 0.01}}}}", Encoding.UTF8, "application/json");
             log.Info(body.ToString());
 
             var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
@@ -171,7 +171,7 @@ namespace AlexaAdvisors
 
           
 
-            return new OkObjectResult("passed");
+          return new OkObjectResult("passed");
         }
 
         public static class Globals

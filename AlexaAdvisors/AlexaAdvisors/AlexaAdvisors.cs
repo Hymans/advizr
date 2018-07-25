@@ -44,7 +44,7 @@ namespace AlexaAdvisors
             public static string userPostcode = "";
             public static string userPostcodeProxy = "";
             public const string subsricptionKeyLifeExpectancy = "ab05b31f579c4d92aa06bd61d4186b64";
-            public const string subsricptionKeyDrawDown = "ab05b31f579c4d92aa06bd61d4186b64";
+            public const string subsricptionKeyDrawDown = "9a511111d99a41f5b298ed8f4f0e9ac3";
 
         }
 
@@ -61,7 +61,6 @@ namespace AlexaAdvisors
             var deviceID = req.Context.System.Device.DeviceID;
             var apiEndPoint = req.Context.System.ApiEndpoint;
             var requestID = req.Request.RequestId;
-
 
             //Check intent request
             if (requestType == typeof(IntentRequest))
@@ -94,6 +93,24 @@ namespace AlexaAdvisors
 
                         if (intentRequest.DialogState == "STARTED")
                         {
+                            
+                            //Find User Location
+                            Globals.userPostcode = await GetUserLocations(deviceID, accessToken, apiEndPoint, log);
+
+                            if (Globals.userPostcode == "NoPermission")
+                            {
+                                //Ask for location permission
+                                IEnumerable<string> locationPermission = new string[] { "read::alexa:device:all:address:country_and_postal_code" };
+                                return ResponseBuilder.TellWithAskForPermissionConsentCard("Please allow me to access the location to find life expectancy. Please check permission request on your mobile.", locationPermission);
+                            }
+                            log.Info(" postcode = " + Globals.userPostcode);
+                                                        
+                            //Call Postcode proxy API
+                            log.Info("Calling postcodeproxy API");
+                            Globals.userPostcodeProxy = await CallPostCodeProxyAPI(log);
+                            log.Info("Postcode Proxy is " + Globals.userPostcodeProxy);
+                            
+
                             log.Info("Current Dialogstate: " + intentRequest.DialogState);
                             return ResponseBuilder.DialogDelegate(updatedIntent);
                         }
@@ -120,32 +137,12 @@ namespace AlexaAdvisors
                                 return InvalidSlotsResponse();
                             }
 
-                            //Find User Location
-                            /*
-                            string userPostcode = await GetUserLocations(deviceID, accessToken, apiEndPoint, log);
-                            
-                            if(userPostcode == null)
-                            {
-                                //Ask for location permission
-                                IEnumerable<string> locationPermission = new string[] { "read::alexa:device:all:address:country_and_postal_code" };
-                                return ResponseBuilder.TellWithAskForPermissionConsentCard("Please allow me to access the location to find life expectancy. Please check permission request on your mobile.", locationPermission);
-
-                            }
-                            else
-                            {
-                                log.Info(" postcode = " + userPostcode);
-                            } 
-                            */
-
-                            //Call Postcode proxy API
-
-
                             //Call Life expectancy API
                             RootLifeExpectancy lifeExpectancyResult = await CallLifeExpectancyAPI(log);
                             var lifeExpectancyValue = lifeExpectancyResult.Data.LifeExpectancyPersonA;
 
                             //Return response
-                            return ResponseBuilder.Tell("According to the statistic, your life expectancy is " + lifeExpectancyValue + " years old. That's amazing.");
+                            return ResponseBuilder.Tell("Your life expectancy is " + lifeExpectancyValue + " years old. That's great.");
                         }
                     case "DrawDown":
 
@@ -156,11 +153,30 @@ namespace AlexaAdvisors
 
                         if (intentRequest.DialogState == "STARTED")
                         {
+                            //Find User Location
+                            Globals.userPostcode = await GetUserLocations(deviceID, accessToken, apiEndPoint, log);
+
+                           if (Globals.userPostcode == "NoPermission")
+                           {
+                               //Ask for location permission
+                               IEnumerable<string> locationPermission = new string[] { "read::alexa:device:all:address:country_and_postal_code" };
+                               return ResponseBuilder.TellWithAskForPermissionConsentCard("Please allow me to access the location to find life expectancy. Please check permission request on your mobile.", locationPermission);
+                           }
+                           log.Info(" postcode = " + Globals.userPostcode);
+                           
+                            //Call Postcode proxy API
+                            log.Info("Calling postcodeproxy API");
+                            Globals.userPostcodeProxy = await CallPostCodeProxyAPI(log);
+                            log.Info("Postcode Proxy is " + Globals.userPostcodeProxy);
+                            
+
                             log.Info("Current Dialogstate: " + intentRequest.DialogState);
                             return ResponseBuilder.DialogDelegate(updatedIntent);
                         }
                         else if (intentRequest.DialogState != "COMPLETED")
                         {
+                            CallDrawDownAPIBackground(log);
+
                             log.Info("Current Dialogstate: " + intentRequest.DialogState);
                             return ResponseBuilder.DialogDelegate(updatedIntent);
                         }
@@ -185,15 +201,16 @@ namespace AlexaAdvisors
                             log.Info("Calling Drawdown API");
                             RootDrawDown drawDownResult = await CallDrawDownAPI(log);
                             var longestvityPercent = drawDownResult.Data.LongevityWeightedProbSuccess*100;
+                            var lifeExpectancy = drawDownResult.Data.LifeExpectancyOutput.LifeExpectancyPersonA;
 
                             //Return response
                             if(longestvityPercent < 50)
                             {
-                                return ResponseBuilder.Tell("You have a chance " + longestvityPercent + "percent to archive your goal. You might need to adjust your target to increase the probabilities.");
+                                return ResponseBuilder.Tell("You life expectancy is "+lifeExpectancy+" years old. You have a chance " + longestvityPercent + " percent to achieve your goal. You might need to adjust your target to increase the chance.");
                             }
                             else
                             {
-                                return ResponseBuilder.Tell("Wow! We have a great news. You have a chance " + longestvityPercent + "percent to archive your goal.");
+                                return ResponseBuilder.Tell("Wow! We have a great news. You life expectancy is " + lifeExpectancy + " years old. You have a chance " + longestvityPercent + " percent to achieve your goal.");
                             }
                         }
                     case "WhatHymans":
@@ -214,7 +231,7 @@ namespace AlexaAdvisors
             }
             else if (requestType == typeof(LaunchRequest))
             {
-                return CreateResponse("Welcome to Hymans Robertson! We can find life expectancy for you. Let's try. How long can I live?", "Try how long can I live?");
+                return CreateResponse("Welcome to Hymans Robertson. We can find life expectancy and success chance from your investment target. You can use command like How long can I live? or do I have enough money for retirement?", "Try how long can I live?");
             }
             return ResponseBuilder.Tell("Sorry, we don't know your command. Please try again.");
         }
@@ -354,32 +371,40 @@ namespace AlexaAdvisors
             client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json"));
             client.DefaultRequestHeaders.Add("Authorization", authorization);
 
-            var getResponse = await client.GetAsync(getUrl);
-            var statusCode = getResponse.StatusCode;
-            if(statusCode == HttpStatusCode.Forbidden){
-                log.Info("403 Forbidden: No permission to access the location");
-                return null;
-             
-            }
-            else if(statusCode == HttpStatusCode.OK)
+            try
             {
-                log.Info("Get User Location is OK.");
+                var getResponse = await client.GetAsync(getUrl);
+                var statusCode = getResponse.StatusCode;
+                if (statusCode == HttpStatusCode.Forbidden)
+                {
+                    log.Info("403 Forbidden: No permission to access the location");
+                    return "NoPermission";
+                }
+                else if (statusCode == HttpStatusCode.OK)
+                {
+                    log.Info("Got User Location.");
+                }
+                while (statusCode == HttpStatusCode.SeeOther)
+                {
+                    Thread.Sleep(100);
+                    getResponse = await client.GetAsync(getUrl);
+                }
+
+                var getResponseBody = await getResponse.Content.ReadAsStringAsync();
+                Postcode deserializedJson = JsonConvert.DeserializeObject<Postcode>(getResponseBody);
+                var postcode = deserializedJson.postalCode;
+                var trimPostcode = postcode.Replace(" ", "");
+
+                watch.Stop();
+                log.Info("Time used for get user location from : " + watch.ElapsedMilliseconds + " ms");
+
+                return trimPostcode;
             }
-            while (statusCode == HttpStatusCode.SeeOther)
+            catch(NullReferenceException e)
             {
-                Thread.Sleep(100);
-                getResponse = await client.GetAsync(getUrl);
+                log.Info("Null postcode detected.");
+                return "EH112EE";
             }
-
-            var getResponseBody = await getResponse.Content.ReadAsStringAsync();
-            Postcode deserializedJson = JsonConvert.DeserializeObject<Postcode>(getResponseBody);
-            var postcode = deserializedJson.postalCode;
-
-            watch.Stop();
-            log.Info("Time used for get user location from : " + watch.ElapsedMilliseconds + " ms");
-
-            return postcode;
-
         }
 
         //This function call LifeExpectancy API
@@ -416,7 +441,6 @@ namespace AlexaAdvisors
                 getResponse = await client.GetAsync(getUrl);
                 getResponseBody = await getResponse.Content.ReadAsStringAsync();
                 deserializedJson = JsonConvert.DeserializeObject<RootLifeExpectancy>(getResponseBody);
-
             }
 
             watch.Stop();
@@ -426,16 +450,60 @@ namespace AlexaAdvisors
         }
 
         //This function call PostCodeProxy API by using postcode
-        /*public static async void CallPostCodeProxyAPI()
+        public static async Task<string> CallPostCodeProxyAPI(TraceWriter log)
         {
+            var watch = new Stopwatch();
+            watch.Start();
+            //Post Request headers
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricptionKeyLifeExpectancy);
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
 
-        }*/
+            var uri = "https://hymans-labs.co.uk/Longevity/postcode";
+
+            //Post request body
+            var body = new StringContent("{\"vitaCurvesVersion\": \"CV16v1_1214\",\"vitaSegmentsEdition\": \"LTG2014\",\"postcodes\": [\""+Globals.userPostcode+"\"]}", Encoding.UTF8, "application/json");
+            var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            var postResponse = await client.SendAsync(request);
+
+            //Get request header and URL
+            var getAcceptHeader = "application/hal+json;v=1";
+            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse(getAcceptHeader));
+            var abUrl = postResponse.Headers.Location.AbsoluteUri;
+            var hostUrl = "https://postcodeproxy-dev.azurewebsites.net/longevitypostcodeproxy/postcodeproxy/";
+
+            var id = abUrl.Substring(hostUrl.Length, abUrl.Length - hostUrl.Length);
+            var getUrl = "https://hymans-labs.co.uk/Longevity/postcodeproxy/" + id;
+            Thread.Sleep(200);
+            //Get response
+            var getResponse = await client.GetAsync(getUrl);
+            var getResponseBody = await getResponse.Content.ReadAsStringAsync();
+            var replacePostcode = getResponseBody.Replace(Globals.userPostcode, "Postcode");
+
+            try
+            {
+                RootPostcodeProxy deserializedJson = JsonConvert.DeserializeObject<RootPostcodeProxy>(replacePostcode);
+
+                watch.Stop();
+                log.Info("Time used for postcode proxy API: " + watch.ElapsedMilliseconds + " ms");
+
+                return deserializedJson.MappedPostcodes[0].Postcode;
+            }
+            catch (NullReferenceException e)
+            {
+                log.Info("Null postcode proxy detected, it will use default value.");
+                return "171001411";
+            }
+
+        }
 
         //This function will call drawdown API
         public static async Task<RootDrawDown> CallDrawDownAPI(TraceWriter log)
         {
             var watch = Stopwatch.StartNew();
-            //Post Request headers
+
             HttpClient client = new HttpClient();
             client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
             client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricptionKeyDrawDown);
@@ -443,81 +511,75 @@ namespace AlexaAdvisors
 
             var uri = "https://hymans-labs.co.uk/decumulationincomeforlifedev/drawdown/assess/";
 
-            //Post request body
+            // Post request body
             var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": "+Globals.userAge+",\"gender\": \""+Globals.userGender+"\",\"healthRelativeToPeers\": \""+Globals.userHealth+"\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": "+Globals.userPotSize+",\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": ["+Globals.userPotEquity+"],\"cash\": ["+Globals.userPotCash+"]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": ["+Globals.userWithdrawalAmount+"],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": "+Globals.userPotIncreaseRate+"}}}}", Encoding.UTF8, "application/json");
             var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            watch.Stop();
+            log.Info("Time before post response: " + watch.ElapsedMilliseconds);
+
+            var watch2 = Stopwatch.StartNew();
             var postResponse = await client.SendAsync(request);
-       
-            //Get request header and URL
+
+            watch2.Stop();
+            log.Info("Time after post response: " + watch2.ElapsedMilliseconds);
+
+            Thread.Sleep(100);
             var getAcceptHeader = "application/hal+json;v=1";
             client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse(getAcceptHeader));
             var getUrl = postResponse.Headers.Location.AbsoluteUri;
-
-            //Get response
             var getResponse = await client.GetAsync(getUrl);
             var getResponseBody = await getResponse.Content.ReadAsStringAsync();
-            RootDrawDown deserializedJson = JsonConvert.DeserializeObject<RootDrawDown>(getResponseBody);
 
-            while (deserializedJson.Status == "InProgress")
+            try
             {
-                Thread.Sleep(100);
-                getResponse = await client.GetAsync(getUrl);
-                getResponseBody = await getResponse.Content.ReadAsStringAsync();
-                deserializedJson = JsonConvert.DeserializeObject<RootDrawDown>(getResponseBody);
+                RootDrawDown deserializedJson = JsonConvert.DeserializeObject<RootDrawDown>(getResponseBody);
+
+                while (deserializedJson.Status == "InProgress")
+                {
+                    Thread.Sleep(100);
+                    getResponse = await client.GetAsync(getUrl);
+                    getResponseBody = await getResponse.Content.ReadAsStringAsync();
+                    deserializedJson = JsonConvert.DeserializeObject<RootDrawDown>(getResponseBody);
+                }
+
+                return deserializedJson;
             }
-
-            watch.Stop();
-            log.Info("Time used for life drawdown API: " + watch.ElapsedMilliseconds + " ms");
-
-            return deserializedJson;
+            catch
+            {
+                log.Info("Null error found.");
+                throw new ArgumentNullException();
+            }
         }
 
-
-        //This function will send progress response to user
-        public static async Task<bool> SendProgress(string requestID, string apiEndPoint, string accessToken, TraceWriter log)
+        //This function will call drawdown API in background (1st time call the API very slow)
+        public static async void CallDrawDownAPIBackground(TraceWriter log)
         {
-            // Set value for header and URL
-            var postURL = apiEndPoint + "/v1/directives/";
-            var authorization = "Bearer " + accessToken;
-
-            log.Info("post URL: " + postURL);
-            log.Info("authorization: " + authorization);
+            var watch = Stopwatch.StartNew();
 
             HttpClient client = new HttpClient();
-            //client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", authorization);
+            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricptionKeyDrawDown);
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
 
-            var progressMessage = new SsmlOutputSpeech();
-            //var audioSrc = "<audio src=\"https://s3-eu-west-1.amazonaws.com/backgroundsoundforalexa/waiting_sound.mp3\"/>";
-            progressMessage.Ssml = "<speak>We are calculating the result. Please wait.</speak>";
+            var uri = "https://hymans-labs.co.uk/decumulationincomeforlifedev/drawdown/assess/";
 
-            log.Info("Message = " + progressMessage);
-
-            var body = new StringContent("{\"header\":{\"requestId\":\""+requestID+"\"},\"directive\":{\"type\":\"VoicePlayer.Speak\",\"speech\":\""+progressMessage+"\"}}", Encoding.UTF8, "application/json");
+            // Post request body
+            var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": 100000,\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": [0.5],\"cash\": [0.5]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": [5000],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": 0.01}}}}", Encoding.UTF8, "application/json");
             log.Info(body.ToString());
 
-            var request = new HttpRequestMessage(HttpMethod.Post, postURL) { Content = body };
+            var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            watch.Stop();
+            log.Info("Time before post response: " + watch.ElapsedMilliseconds);
+            var watch2 = Stopwatch.StartNew();
             var postResponse = await client.SendAsync(request);
 
-            log.Info("Send Progress response code: "+postResponse.StatusCode.ToString());
-            log.Info("Post response header: "+postResponse.Headers.ToString());
-
-            if (postResponse.StatusCode == HttpStatusCode.NoContent)
-            {
-                return true;
-
-            } else
-            {
-                return false;
-            }
-
-
-            
-           
+            watch2.Stop();
+            log.Info("Time used for Drawdown background API: " + watch2.ElapsedMilliseconds);
 
         }
+
 
         //This function will check valid/invalid slots
         public static bool CheckSlotsValue()
@@ -728,6 +790,30 @@ namespace AlexaAdvisors
 
             [JsonProperty("lifeProbabilities")]
             public LifeProbabilities LifeProbabilities { get; set; }
+        }
+
+        public partial class RootPostcodeProxy
+        {
+            [JsonProperty("id")]
+            public Guid Id { get; set; }
+
+            [JsonProperty("vitaCurvesVersion")]
+            public string VitaCurvesVersion { get; set; }
+
+            [JsonProperty("vitaSegmentsEdition")]
+            public string VitaSegmentsEdition { get; set; }
+
+            [JsonProperty("mappedPostcodes")]
+            public MappedPostcode[] MappedPostcodes { get; set; }
+
+            [JsonProperty("_links")]
+            public Links Links { get; set; }
+        }
+
+        public partial class MappedPostcode
+        {
+            [JsonProperty("Postcode")]
+            public string Postcode { get; set; }
         }
     }
 

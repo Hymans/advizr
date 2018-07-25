@@ -17,6 +17,7 @@ using System.Threading;
 using RestSharp.Deserializers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System;
 
 namespace AlexaAdvisors
 {
@@ -25,64 +26,8 @@ namespace AlexaAdvisors
         [FunctionName("TestHarness")]
         public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequest req, TraceWriter log)
         {
-            /*var queryString = HttpUtility.ParseQueryString(string.Empty);
-
-            // Request headers
-            HttpClient client = new HttpClient();
-            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Globals.subsricption_key);
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
-
-            var uri = "https://hymans-labs.co.uk/lifeexpectancydev/";
-
-            // Request body
-
-            var body = new StringContent("{\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}}", Encoding.UTF8, "application/json");
-            log.Info(body.ToString());
-
-
-            var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-
-            var getAcceptHeader = "application/hal+json;v=1";
-            var postResponse = await client.SendAsync(request);
-            Thread.Sleep(200);
-            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse(getAcceptHeader));
-            var getUrl = postResponse.Headers.Location.AbsoluteUri;
-            var getResponse = await client.GetAsync(getUrl);
-
-            while (getResponse.StatusCode == HttpStatusCode.SeeOther)
-            {
-                Thread.Sleep(100);
-                getResponse = await client.GetAsync(getUrl);
-            }
-
-            var getResponseBody = await getResponse.Content.ReadAsStringAsync();
-
-            RootObject deserializedJson = JsonConvert.DeserializeObject<RootObject>(getResponseBody);
-            double longestvity = deserializedJson.data.lifeExpectancyPersonA;*/
-
-            // Set value for header and URL
-            /*var getURL = "/v1/devices/" + "amzn1.ask.device.AFY6M3NYK2GSAM2Y3NS6XKDKKCOAEHWRUMWNI2PNSA3VSVHVUQWDYPXIDPQLFN2LI3OO6G23LUTKR7RKJAHZLVMUVJXPHPNPTUAEVTH2CFUVCCYHZMTQ2YGUXV6QGEFKQRKBEYEKKOKG4BHE7GBUGTAPB4ZZSG5EGJQR3HQILHY6AZQ2EBJ3S" + " / settings/address/countryAndPostalCode";
-            var authorization = "Bearer " + accessToken;
-            var apiEndpoint = "https://api.amazonalexa.co.uk";
-
-            log.Info("get URL :" + getURL);
-            log.Info("Authorization :" + authorization);
-
-            HttpClient client = new HttpClient();
-            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", authorization);
-            var uri = apiEndpoint + getURL;
-            var getResponse = await client.GetAsync(uri);
-            var getResponseBody = await getResponse.Content.ReadAsStringAsync();
-            Postcode deserializedJson = JsonConvert.DeserializeObject<Postcode>(getResponseBody);
-            var postcode = deserializedJson.postalCode;*/
-
-
-            //TEST LifeExpectancy
             /*
-
+            //TEST LifeExpectancy
             var watch = Stopwatch.StartNew();
             // Request headers
             HttpClient client = new HttpClient();
@@ -93,7 +38,7 @@ namespace AlexaAdvisors
             var uri = "https://hymans-labs.co.uk/lifeexpectancydev/";
 
             // Post request body
-            var body = new StringContent("{\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}}", Encoding.UTF8, "application/json");
+            var body = new StringContent("{\"personA\": {\"age\": 50,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}}", Encoding.UTF8, "application/json");
             log.Info(body.ToString());
 
             var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
@@ -119,8 +64,8 @@ namespace AlexaAdvisors
 
             watch.Stop();
             log.Info("Time used for life expectancy API: " + watch.ElapsedMilliseconds + " ms");
-            */
 
+            */
 
             //TEST Drawdown
             // Request headers
@@ -132,10 +77,10 @@ namespace AlexaAdvisors
             client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", "9a511111d99a41f5b298ed8f4f0e9ac3");
             client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
 
-            var uri = "https://hymans-labs.co.uk/decumulationincomeforlifedev/drawdown/assess/";
+            var uri = "https://hymans-labs.co.uk/decumulationincomeforlifedev/drawdown/assess";
 
             // Post request body
-            var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": 100000,\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": [0.5],\"cash\": [0.5]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": [5000],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": 0.01}}}}", Encoding.UTF8, "application/json");
+            var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"161001411\"}},\"potData\": {\"potSizePounds\": 100000,\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": [0.5],\"cash\": [0.5]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": [5000],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": 0.01}}}}", Encoding.UTF8, "application/json");
             log.Info(body.ToString());
 
             var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
@@ -147,7 +92,7 @@ namespace AlexaAdvisors
 
             watch2.Stop();
             log.Info("Time after post response: " + watch2.ElapsedMilliseconds);
-
+            
             var getAcceptHeader = "application/hal+json;v=1";
             client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse(getAcceptHeader));
             var getUrl = postResponse.Headers.Location.AbsoluteUri;
@@ -156,7 +101,6 @@ namespace AlexaAdvisors
             
 
             RootDrawDown deserializedJson = JsonConvert.DeserializeObject<RootDrawDown>(getResponseBody);
-
 
 
             while (deserializedJson.Status == "InProgress")
@@ -168,9 +112,80 @@ namespace AlexaAdvisors
             }
 
             var test = deserializedJson.Data.LongevityWeightedProbSuccess;
+            
 
-          
+            /*
 
+            //TEST GET POSTCODE PROXY
+            //Post Request headers
+            
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", "ab05b31f579c4d92aa06bd61d4186b64");
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
+
+            var uri = "https://hymans-labs.co.uk/Longevity/postcode";
+
+            //Post request body
+            var body = new StringContent("{\"vitaCurvesVersion\": \"CV16v1_1214\",\"vitaSegmentsEdition\": \"LTG2014\",\"postcodes\": [\"EH144AS\"]}", Encoding.UTF8, "application/json");
+            var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            var postResponse = await client.SendAsync(request);
+
+            //Get request header and URL
+            var getAcceptHeader = "application/hal+json;v=1";
+            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse(getAcceptHeader));
+            var abURL = postResponse.Headers.Location.AbsoluteUri;
+           
+            string host = "https://postcodeproxy-dev.azurewebsites.net/longevitypostcodeproxy/postcodeproxy/";
+            string id = abURL.Substring(host.Length,abURL.Length-host.Length);
+
+            var getUrl = "https://hymans-labs.co.uk/Longevity/postcodeproxy/" + id;
+            Thread.Sleep(500);
+            //Get response
+            var getResponse = await client.GetAsync(getUrl);
+            var getResponseBody = await getResponse.Content.ReadAsStringAsync();
+            var postcode = "EH144AS";
+            var test2 = getResponseBody.Replace(postcode, "Postcode");
+            var result = "";
+            try
+            {
+                RootPostcodeProxy deserializedJson = JsonConvert.DeserializeObject<RootPostcodeProxy>(test2);
+                result = deserializedJson.MappedPostcodes[0].Postcode;
+            }
+            catch
+            {
+                result = "1234566";
+            }
+            */
+            /*
+            var watch = new Stopwatch();
+
+            //Post Request headers
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse("application/json;v=1"));
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", "9a511111d99a41f5b298ed8f4f0e9ac3");
+            client.DefaultRequestHeaders.Add("Ocp-Apim-Trace", "true");
+
+            var uri = "https://hymans-labs.co.uk/decumulationincomeforlifedev/drawdown/assess/";
+
+            //Post request body
+            var body = new StringContent("{\"memberData\": {\"personA\": {\"age\": 60,\"gender\": \"male\",\"healthRelativeToPeers\": \"same\",\"postcodeProxy\": \"171001411\"}},\"potData\": {\"potSizePounds\": 100000,\"potStrategy\": {\"assetClassMapping\": {\"ukEquity\": [0.5],\"cash\": [0.5]}}},\"drawdownIncome\": {\"regularWithdrawal\": {\"amount\": [5000],\"increaseData\": {\"increaseType\": \"rpi\",\"increaseRate\": 0.01}}}}", Encoding.UTF8, "application/json");
+            var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = body };
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            var postResponse = await client.SendAsync(request);
+
+            //Get request header and URL
+            var getAcceptHeader = "application/hal+json;v=1";
+            client.DefaultRequestHeaders.Accept.Add(MediaTypeWithQualityHeaderValue.Parse(getAcceptHeader));
+            var getUrl = postResponse.Headers.Location.AbsoluteUri;
+
+            //Get response
+            var getResponse = await client.GetAsync(getUrl);
+
+            watch.Stop();
+            log.Info("Time used for Drawdown API in background " + watch.ElapsedMilliseconds + " ms.");
+            */
             return new OkObjectResult("passed");
         }
 
@@ -345,6 +360,29 @@ namespace AlexaAdvisors
 
             [JsonProperty("lifeProbabilities")]
             public LifeProbabilities LifeProbabilities { get; set; }
+        }
+
+        public partial class RootPostcodeProxy
+        {
+            [JsonProperty("id")]
+            public Guid Id { get; set; }
+
+            [JsonProperty("vitaCurvesVersion")]
+            public string VitaCurvesVersion { get; set; }
+
+            [JsonProperty("vitaSegmentsEdition")]
+            public string VitaSegmentsEdition { get; set; }
+
+            [JsonProperty("mappedPostcodes")]
+            public MappedPostcode[] MappedPostcodes { get; set; }
+
+            [JsonProperty("_links")]
+            public Links Links { get; set; }
+        }
+
+        public partial class MappedPostcode
+        {
+            public string Postcode { get; set; }
         }
     }
 }
